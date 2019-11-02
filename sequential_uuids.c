@@ -89,6 +89,22 @@ uuid_sequence_nextval(PG_FUNCTION_ARGS)
 				(errcode(ERRCODE_INTERNAL_ERROR),
 				 errmsg("could not generate random values")));
 
+	/*
+	 * Set the UUID version flags according to "version 4" (pseudorandom)
+	 * UUID, see http://tools.ietf.org/html/rfc4122#section-4.4
+	 *
+	 * This does reduce the randomness a bit, because it determines the
+	 * value of certain bits, but that should be negligible (certainly
+	 * compared to the reduction due to prefix).
+	 * 
+	 * UUID v4 is probably the safest choice here. There is v1 which is
+	 * time-based, but it includes MAC address (which we don't use) and
+	 * works with very special timestamp (starting at 1582 etc.). So we
+	 * just use v4 and claim this is pseudorandom.
+	 */
+	uuid->data[6] = (uuid->data[6] & 0x0f) | 0x40;	/* time_hi_and_version */
+	uuid->data[8] = (uuid->data[8] & 0x3f) | 0x80;	/* clock_seq_hi_and_reserved */
+
 	PG_RETURN_UUID_P(uuid);
 }
 
@@ -153,6 +169,22 @@ uuid_time_nextval(PG_FUNCTION_ARGS)
 		ereport(ERROR,
 				(errcode(ERRCODE_INTERNAL_ERROR),
 				 errmsg("could not generate random values")));
+
+	/*
+	 * Set the UUID version flags according to "version 4" (pseudorandom)
+	 * UUID, see http://tools.ietf.org/html/rfc4122#section-4.4
+	 *
+	 * This does reduce the randomness a bit, because it determines the
+	 * value of certain bits, but that should be negligible (certainly
+	 * compared to the reduction due to prefix).
+	 * 
+	 * UUID v4 is probably the safest choice here. There is v1 which is
+	 * time-based, but it includes MAC address (which we don't use) and
+	 * works with very special timestamp (starting at 1582 etc.). So we
+	 * just use v4 and claim this is pseudorandom.
+	 */
+	uuid->data[6] = (uuid->data[6] & 0x0f) | 0x40;	/* time_hi_and_version */
+	uuid->data[8] = (uuid->data[8] & 0x3f) | 0x80;	/* clock_seq_hi_and_reserved */
 
 	PG_RETURN_UUID_P(uuid);
 }
