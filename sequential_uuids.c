@@ -3,6 +3,16 @@
  * sequential_uuids.c
  *	  generators of sequential UUID values based on sequence/timestamp
  *
+ *
+ * Currently, this only works on PostgreSQL 10. Adding support for older
+ * releases is possible, but it would require solving a couple issues:
+ *
+ * 1) pg_uuid_t hidden in uuid.c (can be solved by local struct definition)
+ *
+ * 2) pg_strong_random not available (can fallback to random, probably)
+ *
+ * 3) functions defined as PARALLEL SAFE, which fails on pre-9.6 releases
+ *
  *-------------------------------------------------------------------------
  */
 #include <sys/time.h>
@@ -14,7 +24,6 @@
 #include "catalog/namespace.h"
 #include "commands/sequence.h"
 #include "utils/uuid.h"
-#include "utils/varlena.h"
 
 PG_MODULE_MAGIC;
 

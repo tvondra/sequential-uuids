@@ -92,6 +92,14 @@ computed like this
 Which means the generator wraps around every ~45 days.
 
 
+Supported Releases
+------------------
+
+Currently, this extension works only on releases since PostgreSQL 10. It
+can be made working on older releases with some minor code tweaks if
+someone wants to spend a bit of time on that.
+
+
 [1] https://en.wikipedia.org/wiki/Universally_unique_identifier
 
 [2] http://www.informit.com/articles/article.aspx?p=25862

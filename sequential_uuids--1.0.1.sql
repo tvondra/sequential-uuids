@@ -1,4 +1,4 @@
-/* sequential_uuids--1.0.sql */
+/* sequential_uuids.sql */
 
 -- complain if script is sourced in psql, rather than via CREATE EXTENSION
 \echo Use "CREATE EXTENSION sequential_uuids" to load this file. \quit

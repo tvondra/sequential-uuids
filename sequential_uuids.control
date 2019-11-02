@@ -1,5 +1,5 @@
 # sequential UUID generators
 comment = 'generator of sequential UUIDs'
-default_version = '1.0'
+default_version = '1.0.1'
 module_pathname = '$libdir/sequential_uuids'
 relocatable = true

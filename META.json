@@ -1,0 +1,35 @@
+{
+   "name": "sequential_uuids",
+   "abstract": "UUID generators with sequential patterns, which helps to reduce random I/O patterns associated with regular entirely-random UUID.",
+   "description": "Regular random UUIDs are distributed uniformly over the whole range of possible values. This results in poor locality when inserting data into indexes - all index leaf pages are equally likely to be hit, forcing the whole index into memory. With small indexes that's fine, but once the index size exceeds shared buffers (or RAM), the cache hit ratio quickly deteriorates. The main goal of the two generators implemented by this extension, is generating UUIDS in a more sequential pattern, but without reducing the randomness too much (which could increase the probability of collision and predictability of the generated UUIDs). This idea is not new, and is described as",
+   "version": "1.0.1",
+   "maintainer": "Tomas Vondra <tomas@pgaddict.com>",
+   "license": "bsd",
+   "prereqs": {
+      "runtime": {
+         "requires": {
+            "PostgreSQL": "10.0.0"
+         }
+      }
+   },
+   "provides": {
+     "sequential_uuids": {
+       "file": "sequential_uuids--1.0.1.sql",
+       "docfile" : "README.md",
+       "version": "1.0.1"
+     }
+   },
+   "resources": {
+      "repository": {
+        "url":  "https://github.com/tvondra/sequential-uuids.git",
+        "web":  "http://github.com/tvondra/sequential-uuids",
+        "type": "git"
+      }
+   },
+   "tags" : ["UUID", "generator"],
+   "meta-spec": {
+      "version": "1.0.0",
+      "url": "http://pgxn.org/meta/spec.txt"
+   },
+   "release_status" : "stable"
+}
