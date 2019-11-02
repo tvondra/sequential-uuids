@@ -83,12 +83,11 @@ uuid_sequence_nextval(PG_FUNCTION_ARGS)
 	for (i = 0; i < prefix_bytes; i++)
 		uuid->data[i] = p[prefix_bytes - 1 - i];
 
-	/*
-	 * TODO optimize this by using larger chunks of the random value
-	 * (it should be 4B in most cases)
-	 */
-	for (i = prefix_bytes; i < UUID_LEN; i++)
-		uuid->data[i] = (random() % 256);
+	/* generate the remaining bytes as random (use strong generator) */
+	if(!pg_strong_random(uuid->data + prefix_bytes, UUID_LEN - prefix_bytes))
+		ereport(ERROR,
+				(errcode(ERRCODE_INTERNAL_ERROR),
+				 errmsg("could not generate random values")));
 
 	PG_RETURN_UUID_P(uuid);
 }
@@ -149,12 +148,11 @@ uuid_time_nextval(PG_FUNCTION_ARGS)
 	for (i = 0; i < prefix_bytes; i++)
 		uuid->data[i] = p[prefix_bytes - 1 - i];
 
-	/*
-	 * TODO optimize this by using larger chunks of the random value
-	 * (it should be 4B in most cases)
-	 */
-	for (i = prefix_bytes; i < UUID_LEN; i++)
-		uuid->data[i] = (random() % 256);
+	/* generate the remaining bytes as random (use strong generator) */
+	if(!pg_strong_random(uuid->data + prefix_bytes, UUID_LEN - prefix_bytes))
+		ereport(ERROR,
+				(errcode(ERRCODE_INTERNAL_ERROR),
+				 errmsg("could not generate random values")));
 
 	PG_RETURN_UUID_P(uuid);
 }
