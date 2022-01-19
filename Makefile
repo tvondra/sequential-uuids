@@ -10,6 +10,10 @@ OBJS = sequential_uuids.o
 EXTENSION = sequential_uuids
 DATA = sequential_uuids--1.0.1.sql
 
+TESTS        = $(wildcard test/sql/*.sql)
+REGRESS      = $(patsubst test/sql/%.sql,%,$(TESTS))
+REGRESS_OPTS = --inputdir=test
+
 PG_CONFIG = pg_config
 PGXS := $(shell $(PG_CONFIG) --pgxs)
 include $(PGXS)
