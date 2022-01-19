@@ -30,6 +30,54 @@ PG_MODULE_MAGIC;
 PG_FUNCTION_INFO_V1(uuid_sequence_nextval);
 PG_FUNCTION_INFO_V1(uuid_time_nextval);
 
+static Datum
+sequential_uuid(int64 val, int32 block_size, int32 count)
+{
+	pg_uuid_t	*uuid = palloc(sizeof(pg_uuid_t));
+	unsigned char	*p;
+	int		prefix_bytes;
+	int		i;
+
+	val /= block_size;
+
+	/* count the number of bytes to keep from the value */
+	prefix_bytes = 1;
+	while (count > 256)
+	{
+		count /= 256;
+		prefix_bytes++;
+	}
+
+	/* copy the desired number of (least significant) bytes as prefix */
+	p = (unsigned char *) &val;
+	for (i = 0; i < prefix_bytes; i++)
+		uuid->data[i] = p[prefix_bytes - 1 - i];
+
+	/* generate the remaining bytes as random (use strong generator) */
+	if(!pg_strong_random(uuid->data + prefix_bytes, UUID_LEN - prefix_bytes))
+		ereport(ERROR,
+				(errcode(ERRCODE_INTERNAL_ERROR),
+				 errmsg("could not generate random values")));
+
+	/*
+	 * Set the UUID version flags according to "version 4" (pseudorandom)
+	 * UUID, see http://tools.ietf.org/html/rfc4122#section-4.4
+	 *
+	 * This does reduce the randomness a bit, because it determines the
+	 * value of certain bits, but that should be negligible (certainly
+	 * compared to the reduction due to prefix).
+	 *
+	 * UUID v4 is probably the safest choice here. There is v1 which is
+	 * time-based, but it includes MAC address (which we don't use) and
+	 * works with very special timestamp (starting at 1582 etc.). So we
+	 * just use v4 and claim this is pseudorandom.
+	 */
+	uuid->data[6] = (uuid->data[6] & 0x0f) | 0x40;	/* time_hi_and_version */
+	uuid->data[8] = (uuid->data[8] & 0x3f) | 0x80;	/* clock_seq_hi_and_reserved */
+
+	PG_RETURN_UUID_P(uuid);
+}
+
 /*
  * uuid_sequence_nextval
  *	generate sequential UUID using a sequence
@@ -49,14 +97,9 @@ PG_FUNCTION_INFO_V1(uuid_time_nextval);
 Datum
 uuid_sequence_nextval(PG_FUNCTION_ARGS)
 {
-	int				i;
-	int64			val;
 	Oid				relid = PG_GETARG_OID(0);
 	int32			block_size = PG_GETARG_INT32(1);
 	int32			block_count = PG_GETARG_INT32(2);
-	int64			prefix_bytes;
-	pg_uuid_t	   *uuid;
-	unsigned char  *p;
 
 	/* some basic sanity checks */
 	if (block_size < 1)
@@ -69,52 +112,15 @@ uuid_sequence_nextval(PG_FUNCTION_ARGS)
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 				 errmsg("number of blocks must be a positive integer")));
 
-	/* count the number of bytes to keep from the sequence value */
-	prefix_bytes = 1;
-	while (block_count > 256)
-	{
-		block_count /= 256;
-		prefix_bytes++;
-	}
-
 	/*
 	 * Read the next value from the sequence and get rid of the least
 	 * significant bytes. Subtract one, because sequences start at 1.
 	 */
-	val = nextval_internal(relid, true);
-	val = (val - 1) / block_size;
-
-	p = (unsigned char *) &val;
-
-	uuid = palloc(sizeof(pg_uuid_t));
-
-	/* copy the desired number of (least significant) bytes as prefix */
-	for (i = 0; i < prefix_bytes; i++)
-		uuid->data[i] = p[prefix_bytes - 1 - i];
-
-	/* generate the remaining bytes as random (use strong generator) */
-	if(!pg_strong_random(uuid->data + prefix_bytes, UUID_LEN - prefix_bytes))
-		ereport(ERROR,
-				(errcode(ERRCODE_INTERNAL_ERROR),
-				 errmsg("could not generate random values")));
-
-	/*
-	 * Set the UUID version flags according to "version 4" (pseudorandom)
-	 * UUID, see http://tools.ietf.org/html/rfc4122#section-4.4
-	 *
-	 * This does reduce the randomness a bit, because it determines the
-	 * value of certain bits, but that should be negligible (certainly
-	 * compared to the reduction due to prefix).
-	 * 
-	 * UUID v4 is probably the safest choice here. There is v1 which is
-	 * time-based, but it includes MAC address (which we don't use) and
-	 * works with very special timestamp (starting at 1582 etc.). So we
-	 * just use v4 and claim this is pseudorandom.
-	 */
-	uuid->data[6] = (uuid->data[6] & 0x0f) | 0x40;	/* time_hi_and_version */
-	uuid->data[8] = (uuid->data[8] & 0x3f) | 0x80;	/* clock_seq_hi_and_reserved */
-
-	PG_RETURN_UUID_P(uuid);
+	return sequential_uuid(
+		/* Create sequential uuid using next value of sequence */
+		nextval_internal(relid, true) - 1,
+		block_size,
+		block_count);
 }
 
 /*
@@ -132,14 +138,9 @@ uuid_sequence_nextval(PG_FUNCTION_ARGS)
 Datum
 uuid_time_nextval(PG_FUNCTION_ARGS)
 {
-	int				i;
 	struct timeval	tv;
-	int64			val;
-	pg_uuid_t	   *uuid;
 	int32			interval_length = PG_GETARG_INT32(0);
 	int32			interval_count = PG_GETARG_INT32(1);
-	int64			prefix_bytes;
-	unsigned char  *p;
 
 	/* some basic sanity checks */
 	if (interval_length < 1)
@@ -155,45 +156,9 @@ uuid_time_nextval(PG_FUNCTION_ARGS)
 	if (gettimeofday(&tv, NULL) != 0)
 		elog(ERROR, "gettimeofday call failed");
 
-	val = (tv.tv_sec / interval_length);
-
-	/* count the number of bytes to keep from the timestamp */
-	prefix_bytes = 1;
-	while (interval_count > 256)
-	{
-		interval_count /= 256;
-		prefix_bytes++;
-	}
-
-	p = (unsigned char *) &val;
-
-	uuid = palloc(sizeof(pg_uuid_t));
-
-	/* copy the desired number of (least significant) bytes as prefix */
-	for (i = 0; i < prefix_bytes; i++)
-		uuid->data[i] = p[prefix_bytes - 1 - i];
-
-	/* generate the remaining bytes as random (use strong generator) */
-	if(!pg_strong_random(uuid->data + prefix_bytes, UUID_LEN - prefix_bytes))
-		ereport(ERROR,
-				(errcode(ERRCODE_INTERNAL_ERROR),
-				 errmsg("could not generate random values")));
-
-	/*
-	 * Set the UUID version flags according to "version 4" (pseudorandom)
-	 * UUID, see http://tools.ietf.org/html/rfc4122#section-4.4
-	 *
-	 * This does reduce the randomness a bit, because it determines the
-	 * value of certain bits, but that should be negligible (certainly
-	 * compared to the reduction due to prefix).
-	 * 
-	 * UUID v4 is probably the safest choice here. There is v1 which is
-	 * time-based, but it includes MAC address (which we don't use) and
-	 * works with very special timestamp (starting at 1582 etc.). So we
-	 * just use v4 and claim this is pseudorandom.
-	 */
-	uuid->data[6] = (uuid->data[6] & 0x0f) | 0x40;	/* time_hi_and_version */
-	uuid->data[8] = (uuid->data[8] & 0x3f) | 0x80;	/* clock_seq_hi_and_reserved */
-
-	PG_RETURN_UUID_P(uuid);
+	/* Create sequential uuid using current time in seconds */
+	return sequential_uuid(
+		tv.tv_sec,
+		interval_length,
+		interval_count);
 }
