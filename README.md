@@ -22,10 +22,11 @@ The main goal of the two generators implemented by this extension, is
 generating UUIDS in a more sequential pattern, but without reducing the
 randomness too much (which could increase the probability of collision
 and predictability of the generated UUIDs).  This idea is not new, and
-is described as 
-
-This idea is pretty much what the UUID wikipedia article [1] calls COMB
+it's pretty much what the UUID wikipedia article [1] calls COMB
 (combined-time GUID) and is more more thoroughly explained in [2].
+
+The benefits (performance, reduced amount of WAL, ...) are demonstrated
+in a blog post on 2ndQuadrant site [3].
 
 
 Generators
@@ -63,9 +64,9 @@ would be almost perfectly sequential, but there are two issues with it:
   indexes on timestamps in log tables.
 
 To address both of these issues, the implemented generators are designed
-to wrap-around regularly, either after generating certain number of UUIDs
-or some amount of time.  In both cases, the UUIDs are generates in blocks
-and have the form of
+to wrap-around regularly, either after generating a certain number of
+UUIDs or some amount of time.  In both cases, the UUIDs are generates in
+blocks and have the form of
 
     (block ID; random data)
 
@@ -74,9 +75,9 @@ The size of the block ID depends on the number of blocks and is fixed
 blocks we need 2 bytes to store it.  The block ID increments regularly,
 and eventually wraps around.
 
-For sequence-based generators the block size is determined by number of
-UUIDs generated.  For example we may use blocks of 256 values, in which
-case the two-byte block ID may be computed like this:
+For sequence-based generators the block size is determined by the number
+of UUIDs generated.  For example we may use blocks of 256 values, in
+which case the two-byte block ID may be computed like this:
 
     (nextval('s') / 256) % 65536
 
@@ -84,7 +85,7 @@ So the generator wraps-around every ~16M UUIDs (because 256 * 65536).
 
 For timestamp-based generators, the block size is defined as interval
 length, with the default value 60 seconds.  As the default number of
-blocks is 64k (same as for sequence-based generators), the bloc may be
+blocks is 64k (same as for sequence-based generators), the block may be
 computed like this
 
     (timestamp / 60) % 65536
@@ -103,3 +104,5 @@ someone wants to spend a bit of time on that.
 [1] https://en.wikipedia.org/wiki/Universally_unique_identifier
 
 [2] http://www.informit.com/articles/article.aspx?p=25862
+
+[3] https://www.2ndquadrant.com/en/blog/sequential-uuid-generators/
