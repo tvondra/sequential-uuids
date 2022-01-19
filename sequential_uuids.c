@@ -70,8 +70,8 @@ uuid_sequence_nextval(PG_FUNCTION_ARGS)
 				 errmsg("number of blocks must be a positive integer")));
 
 	/* count the number of bytes to keep from the sequence value */
-	prefix_bytes = 0;
-	while (block_count > 1)
+	prefix_bytes = 1;
+	while (block_count > 256)
 	{
 		block_count /= 256;
 		prefix_bytes++;
@@ -158,8 +158,8 @@ uuid_time_nextval(PG_FUNCTION_ARGS)
 	val = (tv.tv_sec / interval_length);
 
 	/* count the number of bytes to keep from the timestamp */
-	prefix_bytes = 0;
-	while (interval_count > 1)
+	prefix_bytes = 1;
+	while (interval_count > 256)
 	{
 		interval_count /= 256;
 		prefix_bytes++;

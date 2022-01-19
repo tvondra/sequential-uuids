@@ -46,6 +46,24 @@ SELECT substring(val, 1, 2) AS block, count(*) AS cnt FROM uuid_tmp GROUP BY 1;
 DROP SEQUENCE s;
 DROP TABLE uuid_tmp;
 
+-- try with tiny block, to make sure we generate prefix correctly
+CREATE SEQUENCE s;
+
+CREATE TABLE uuid_tmp AS SELECT uuid_sequence_nextval('s'::regclass, 100, 100)::text AS val FROM generate_series(1,1000) s(i);
+
+-- there should be 200k distinct UUID values (collisions unlikely)
+SELECT COUNT(DISTINCT val) FROM uuid_tmp;
+
+-- there should be 4 blocks (each up to 65536 values)
+SELECT COUNT(DISTINCT substring(val, 1, 2)) FROM uuid_tmp;
+
+-- there should be two blocks that are not exactly 256 values - the first one
+-- (because sequences start at 1) and the last one (not fully generated yet)
+SELECT substring(val, 1, 2) AS block, count(*) AS cnt FROM uuid_tmp GROUP BY 1 ORDER BY 1;
+
+DROP SEQUENCE s;
+DROP TABLE uuid_tmp;
+
 
 -- try wrapping the block count
 CREATE SEQUENCE s;
