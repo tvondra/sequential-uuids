@@ -1,6 +1,6 @@
 # sequeantial_uuids/Makefile
 #
-# Copyright (c) 2014 Citus Data, Inc.
+# Copyright (c) 2018-2022 Tomas Vondra <tomas@pgaddict.com>
 #
 
 MODULE_big = sequential_uuids
