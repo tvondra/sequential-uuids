@@ -59,12 +59,12 @@ uuid_sequence_nextval(PG_FUNCTION_ARGS)
 	unsigned char  *p;
 
 	/* some basic sanity checks */
-	if (block_size < 0)
+	if (block_size < 1)
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 				 errmsg("block size must be a positive integer")));
 
-	if (block_count < 0)
+	if (block_count < 1)
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 				 errmsg("number of blocks must be a positive integer")));

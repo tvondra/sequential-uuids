@@ -1,6 +1,16 @@
 CREATE EXTENSION sequential_uuids;
 -- uuid_sequence_nextval
 CREATE SEQUENCE s;
+-- invalid block size
+SELECT uuid_sequence_nextval('s'::regclass, 0, 1);
+ERROR:  block size must be a positive integer
+SELECT uuid_sequence_nextval('s'::regclass, -1, 1);
+ERROR:  block size must be a positive integer
+-- invalid block count
+SELECT uuid_sequence_nextval('s'::regclass, 1, 0);
+ERROR:  number of blocks must be a positive integer
+SELECT uuid_sequence_nextval('s'::regclass, 1, -1);
+ERROR:  number of blocks must be a positive integer
 CREATE TABLE uuid_tmp AS SELECT uuid_sequence_nextval('s'::regclass, 256, 65536)::text AS val FROM generate_series(1,10000) s(i);
 -- there should be 10k distinct UUID values (collisions unlikely)
 SELECT COUNT(DISTINCT val) FROM uuid_tmp;
