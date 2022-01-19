@@ -8,7 +8,7 @@ MODULE_big = sequential_uuids
 OBJS = sequential_uuids.o
 
 EXTENSION = sequential_uuids
-DATA = sequential_uuids--1.0.1.sql
+DATA = sequential_uuids--1.0.1.sql sequential_uuids--1.0.1--1.0.2.sql
 
 TESTS        = $(wildcard test/sql/*.sql)
 REGRESS      = $(patsubst test/sql/%.sql,%,$(TESTS))
