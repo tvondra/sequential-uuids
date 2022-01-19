@@ -79,10 +79,10 @@ uuid_sequence_nextval(PG_FUNCTION_ARGS)
 
 	/*
 	 * Read the next value from the sequence and get rid of the least
-	 * significant bytes.
+	 * significant bytes. Subtract one, because sequences start at 1.
 	 */
 	val = nextval_internal(relid, true);
-	val /= block_size;
+	val = (val - 1) / block_size;
 
 	p = (unsigned char *) &val;
 
