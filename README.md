@@ -1,6 +1,8 @@
 Sequential UUID generators
 ==========================
 
+[![make installcheck](https://github.com/tvondra/sequential-uuids/actions/workflows/ci.yml/badge.svg)](https://github.com/tvondra/sequential-uuids/actions/workflows/ci.yml)
+
 This PostgreSQL extension implements two UUID generators with sequential
 patterns, which helps to reduce random I/O patterns associated with
 regular entirely-random UUID.
