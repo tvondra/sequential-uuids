@@ -17,7 +17,3 @@ REGRESS_OPTS = --inputdir=test
 PG_CONFIG = pg_config
 PGXS := $(shell $(PG_CONFIG) --pgxs)
 include $(PGXS)
-
-ifndef MAJORVERSION
-    MAJORVERSION := $(basename $(VERSION))
-endif
