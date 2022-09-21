@@ -15,6 +15,7 @@
  *
  *-------------------------------------------------------------------------
  */
+#include <math.h>
 #include <sys/time.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -34,30 +35,53 @@ static Datum
 sequential_uuid(int64 val, int32 block_size, int32 count)
 {
 	pg_uuid_t	*uuid = palloc(sizeof(pg_uuid_t));
-	unsigned char	*p;
-	int		prefix_bytes;
+	unsigned char   *p;
+	int		prefix_bits;
+	int		log2_count;
 	int		i;
+	uint64	tmp;
+	unsigned char   *mask = (unsigned char *) &tmp;
 
-	val /= block_size;
-
-	/* count the number of bytes to keep from the value */
-	prefix_bytes = 1;
-	while (count > 256)
-	{
-		count /= 256;
-		prefix_bytes++;
-	}
-
-	/* copy the desired number of (least significant) bytes as prefix */
-	p = (unsigned char *) &val;
-	for (i = 0; i < prefix_bytes; i++)
-		uuid->data[i] = p[prefix_bytes - 1 - i];
-
-	/* generate the remaining bytes as random (use strong generator) */
-	if(!pg_strong_random(uuid->data + prefix_bytes, UUID_LEN - prefix_bytes))
+	/* generate random bytes (use strong generator) */
+	if(!pg_strong_random(uuid->data, UUID_LEN))
 		ereport(ERROR,
 				(errcode(ERRCODE_INTERNAL_ERROR),
 				 errmsg("could not generate random values")));
+
+	/* count the number of bits to keep from the value */
+	prefix_bits = log2(count);
+	log2_count = pow(2, prefix_bits);
+
+	/* make sure we've reached the count value */
+	while (count > log2_count)
+	{
+		log2_count *= 2;
+		prefix_bits++;
+	}
+
+	/* determine in which block the value belongs */
+	val = (val / block_size) % log2_count;
+
+	/* convert to big endian (easier to copy) */
+	val = (val << (64 - prefix_bits));
+
+	/*
+	 * Calculate the mask (to zero the random bits before adding the
+	 * prefix bytes).
+	 */
+	tmp = (0xFFFFFFFFFFFFFFFF >> prefix_bits);
+
+	/* easier to deal with big endian byte order */
+	val = htobe64(val);
+	tmp = htobe64(tmp);
+
+	/*
+	 * Copy the prefix in. We already have random data, so use the mask
+	 * to zero the bits first.
+	 */
+	p = (unsigned char *) &val;
+	for (i = 0; i < 8; i++)
+		uuid->data[i] = (uuid->data[i] & mask[i]) | p[i];
 
 	/*
 	 * Set the UUID version flags according to "version 4" (pseudorandom)
@@ -88,7 +112,7 @@ sequential_uuid(int64 val, int32 block_size, int32 count)
  * The block_size (65546 by default) determines the number of UUIDs with
  * the same prefix, and block_count (65536 by default) determines the
  * number of blocks before wrapping around to 0. This means that with
- * the default values, the generator wraps around every ~2B UUIDs.
+ * the default values, the generator wraps around every ~4B UUIDs.
  *
  * You may increase (or rather decrease) the parameters if needed, e.g,
  * by lowering the block size to 256, in wich case the cycle interval
