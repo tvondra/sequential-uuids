@@ -32,15 +32,16 @@ PG_FUNCTION_INFO_V1(uuid_sequence_nextval);
 PG_FUNCTION_INFO_V1(uuid_time_nextval);
 
 static Datum
-sequential_uuid(int64 val, int32 block_size, int32 count)
+sequential_uuid(int64 val, int32 block_size, int32 block_count)
 {
 	pg_uuid_t	*uuid = palloc(sizeof(pg_uuid_t));
 	unsigned char   *p;
 	int		prefix_bits;
-	int		log2_count;
+	int		prefix_count;
 	int		i;
 	uint64	tmp;
 	unsigned char   *mask = (unsigned char *) &tmp;
+	uint64	wrap_size;
 
 	/* generate random bytes (use strong generator) */
 	if(!pg_strong_random(uuid->data, UUID_LEN))
@@ -49,24 +50,38 @@ sequential_uuid(int64 val, int32 block_size, int32 count)
 				 errmsg("could not generate random values")));
 
 	/* count the number of bits to keep from the value */
-	prefix_bits = log2(count);
-	log2_count = pow(2, prefix_bits);
-
-	/* make sure we've reached the count value */
-	while (count > log2_count)
+	prefix_bits = 1;
+	prefix_count = 2;
+	while (block_count > prefix_count)
 	{
-		log2_count *= 2;
 		prefix_bits++;
+		prefix_count *= 2;
 	}
 
-	/* determine in which block the value belongs */
-	val = (val / block_size) % log2_count;
+	/* make sure the prefix is a multiple of whole bytes */
+	prefix_bits = ((prefix_bits + 7) / 8) * 8;
 
-	/* convert to big endian (easier to copy) */
+	/* calculate the number of blocks for the rounded prefix bits */
+	prefix_count = 1;
+	for (i = 0; i < prefix_bits; i++)
+		prefix_count *= 2;
+
+	/*
+	 * Recalculate the block size, using the prefix_count instead of the
+	 * original block_count.
+	 */
+	wrap_size = (int64) block_size * block_count;
+	block_size = Max(1, wrap_size / prefix_count);
+
+	/* determine in which block the value belongs */
+	val = (val / block_size);
+
+	/* cap the number of blocks to the desired number of blocks */
+	val = val & (0xFFFFFFFFFFFFFFFF >> (64 - prefix_bits));
 	val = (val << (64 - prefix_bits));
 
 	/*
-	 * Calculate the mask (to zero the random bits before adding the
+	 * Calculate the mask (to zero the random bits when copying the
 	 * prefix bytes).
 	 */
 	tmp = (0xFFFFFFFFFFFFFFFF >> prefix_bits);
